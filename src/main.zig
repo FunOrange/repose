@@ -62,5 +62,34 @@ pub fn wWinMain(
 
 // fn WindowProc(hwnd: *win32.foundation.HWND, uMsg: u32, wParam: usize, lParam: isize) callconv(.c) isize {
 fn WindowProc(hwnd: win32.HWND, uMsg: u32, wParam: usize, lParam: isize) callconv(.c) isize {
+    switch (uMsg) {
+        win32.WM_DROPFILES => std.debug.print("WM_DROPFILES\n", .{}),
+        win32.WM_ENABLE => std.debug.print("WM_ENABLE\n", .{}),
+        win32.WM_CONTEXTMENU => std.debug.print("WM_CONTEXTMENU\n", .{}),
+        win32.WM_HOTKEY => std.debug.print("WM_HOTKEY\n", .{}),
+        win32.WM_TIMER => std.debug.print("WM_TIMER\n", .{}),
+        win32.WM_NOTIFY => std.debug.print("WM_NOTIFY\n", .{}),
+        win32.WM_COMMAND => std.debug.print("WM_COMMAND\n", .{}),
+        win32.WM_INPUT => std.debug.print("WM_INPUT\n", .{}),
+        win32.WM_MOUSEWHEEL => std.debug.print("WM_MOUSEWHEEL\n", .{}),
+        win32.WM_RBUTTONUP => std.debug.print("WM_RBUTTONUP\n", .{}),
+        win32.WM_RBUTTONDOWN => std.debug.print("WM_RBUTTONDOWN\n", .{}),
+        win32.WM_LBUTTONUP => std.debug.print("WM_LBUTTONUP\n", .{}),
+        win32.WM_LBUTTONDOWN => std.debug.print("WM_LBUTTONDOWN\n", .{}),
+        win32.WM_CHAR => std.debug.print("WM_CHAR\n", .{}),
+        win32.WM_KEYUP => std.debug.print("WM_KEYUP\n", .{}),
+        win32.WM_KEYDOWN => std.debug.print("WM_KEYDOWN\n", .{}),
+        win32.WM_KILLFOCUS => std.debug.print("WM_KILLFOCUS\n", .{}),
+        win32.WM_SETFOCUS => std.debug.print("WM_SETFOCUS\n", .{}),
+        win32.WM_ACTIVATE => std.debug.print("WM_ACTIVATE\n", .{}),
+        win32.WM_SIZE => std.debug.print("WM_SIZE\n", .{}),
+        win32.WM_ERASEBKGND => std.debug.print("WM_ERASEBKGND\n", .{}),
+        win32.WM_PAINT => std.debug.print("WM_PAINT\n", .{}),
+        win32.WM_QUIT => std.debug.print("WM_QUIT\n", .{}),
+        win32.WM_CLOSE => std.debug.print("WM_CLOSE\n", .{}),
+        win32.WM_DESTROY => std.debug.print("WM_DESTROY\n", .{}),
+        win32.WM_CREATE => std.debug.print("WM_CREATE\n", .{}),
+        else => {},
+    }
     return win32.DefWindowProcW(hwnd, uMsg, wParam, lParam);
 }
