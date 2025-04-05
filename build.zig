@@ -35,6 +35,7 @@ pub fn build(b: *std.Build) void {
         .name = "repose",
         .root_module = exe_mod,
     });
+    exe.subsystem = .Windows; // or .Console
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
