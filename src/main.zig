@@ -1,7 +1,7 @@
 const std = @import("std");
 const L = std.unicode.utf8ToUtf16LeStringLiteral;
 const win32 = @import("./zigwin32/win32/everything.zig");
-const AppState = @import("./app_state.zig").AppState;
+const MainWindowAppState = @import("./app_state.zig").MainWindowAppState;
 const AppStateError = @import("./app_state.zig").AppStateError;
 
 pub fn wWinMain(
@@ -32,7 +32,7 @@ pub fn wWinMain(
     }
 
     const allocator = std.heap.page_allocator;
-    const app_state = allocator.create(AppState) catch return -1;
+    const app_state = allocator.create(MainWindowAppState) catch return -1;
     app_state.* = .{
         .start_time = std.time.timestamp(),
     };
@@ -74,9 +74,9 @@ fn WindowProc(hwnd: win32.HWND, uMsg: u32, wParam: usize, lParam: isize) callcon
     switch (uMsg) {
         win32.WM_CREATE => {
             std.debug.print("WM_CREATE\n", .{});
-            const app_state_result: AppStateError!*AppState = blk: {
+            const app_state_result: AppStateError!*MainWindowAppState = blk: {
                 const pCreate: *win32.CREATESTRUCTW = @ptrFromInt(to_usize(lParam));
-                const maybe_app_state: ?*AppState = @ptrCast(@alignCast(pCreate.lpCreateParams));
+                const maybe_app_state: ?*MainWindowAppState = @ptrCast(@alignCast(pCreate.lpCreateParams));
                 break :blk maybe_app_state orelse AppStateError.IsNull;
             };
             const app_state = app_state_result catch return -1;
