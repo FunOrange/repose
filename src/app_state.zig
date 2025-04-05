@@ -1,4 +1,5 @@
-pub const MainWindowAppState = struct {
+pub const MainAppState = struct {
+    id: u32,
     start_time: i64,
 };
 

@@ -1,7 +1,8 @@
 const std = @import("std");
 const L = std.unicode.utf8ToUtf16LeStringLiteral;
 const win32 = @import("./zigwin32/win32/everything.zig");
-const MainWindowAppState = @import("./app_state.zig").MainWindowAppState;
+const util = @import("./utils.zig");
+const MainAppState = @import("./app_state.zig").MainAppState;
 const AppStateError = @import("./app_state.zig").AppStateError;
 
 pub fn wWinMain(
@@ -32,10 +33,12 @@ pub fn wWinMain(
     }
 
     const allocator = std.heap.page_allocator;
-    const app_state = allocator.create(MainWindowAppState) catch return -1;
+    const app_state = allocator.create(MainAppState) catch return -1;
     app_state.* = .{
+        .id = 80085,
         .start_time = std.time.timestamp(),
     };
+    std.debug.print("{?}\n", .{app_state});
 
     const hwnd = win32.CreateWindowExW(.{}, // Optional window styles.
         className, // Window class
@@ -67,23 +70,19 @@ pub fn wWinMain(
     return 0;
 }
 
-fn to_usize(num: anytype) usize {
-    return @intCast(num);
-}
 fn WindowProc(hwnd: win32.HWND, uMsg: u32, wParam: usize, lParam: isize) callconv(.c) isize {
     switch (uMsg) {
         win32.WM_CREATE => {
             std.debug.print("WM_CREATE\n", .{});
-            const app_state_result: AppStateError!*MainWindowAppState = blk: {
-                const pCreate: *win32.CREATESTRUCTW = @ptrFromInt(to_usize(lParam));
-                const maybe_app_state: ?*MainWindowAppState = @ptrCast(@alignCast(pCreate.lpCreateParams));
-                break :blk maybe_app_state orelse AppStateError.IsNull;
-            };
-            const app_state = app_state_result catch return -1;
-            std.debug.print("{}\n", .{app_state});
+            const pCreate = util.isizeToPtr(win32.CREATESTRUCTW, lParam) orelse return -1;
+            const app_state = util.opaqPtrTo(MainAppState, pCreate.lpCreateParams) orelse return -1;
+            _ = win32.SetWindowLongPtrW(hwnd, win32.GWLP_USERDATA, util.ptrToIsize(app_state));
         },
         win32.WM_PAINT => {
             std.debug.print("WM_PAINT\n", .{});
+            const ptr = getMainAppState(hwnd);
+            std.debug.print("{?}\n", .{ptr});
+
             var ps: win32.PAINTSTRUCT = undefined;
             const hdc = win32.BeginPaint(hwnd, &ps);
 
@@ -122,4 +121,10 @@ fn WindowProc(hwnd: win32.HWND, uMsg: u32, wParam: usize, lParam: isize) callcon
         else => {},
     }
     return win32.DefWindowProcW(hwnd, uMsg, wParam, lParam);
+}
+
+fn getMainAppState(hwnd: win32.HWND) ?*MainAppState {
+    const ptr: isize = win32.GetWindowLongPtrW(hwnd, win32.GWLP_USERDATA);
+    const app_state = util.isizeToPtr(MainAppState, ptr);
+    return app_state;
 }
