@@ -2,8 +2,14 @@ const std = @import("std");
 const L = std.unicode.utf8ToUtf16LeStringLiteral;
 const win32 = @import("./zigwin32/win32/everything.zig");
 const util = @import("./utils.zig");
-const MainAppState = @import("./app_state.zig").MainAppState;
-const AppStateError = @import("./app_state.zig").AppStateError;
+const layout = @import("./layout.zig");
+const app = @import("./app.zig");
+
+const app_class = L("App");
+
+pub const AppState = struct {
+    node_tree: *layout.Node,
+};
 
 pub fn wWinMain(
     hInstance: std.os.windows.HINSTANCE,
@@ -11,8 +17,7 @@ pub fn wWinMain(
     _: std.os.windows.LPWSTR,
     _: c_int,
 ) std.os.windows.INT {
-    const className = L("Window Class");
-    const wc = win32.WNDCLASSW{
+    const class = win32.WNDCLASSW{
         .cbClsExtra = 0,
         .cbWndExtra = 0,
         .hCursor = win32.LoadCursorW(null, win32.IDC_ARROW),
@@ -22,26 +27,26 @@ pub fn wWinMain(
         .hbrBackground = null,
         .lpfnWndProc = WindowProc,
         .hInstance = hInstance,
-        .lpszClassName = className,
+        .lpszClassName = app_class,
     };
 
-    const err = win32.RegisterClassW(&wc);
+    const err = win32.RegisterClassW(&class);
     if (err == 0) {
-        std.debug.print("WTF RegisterClassW returned 0\n", .{});
-        std.debug.print("error: {?}\n", .{win32.GetLastError()});
+        std.debug.print("RegisterClassW error: {?}\n", .{win32.GetLastError()});
         return 0;
     }
 
     const allocator = std.heap.page_allocator;
-    const app_state = allocator.create(MainAppState) catch return -1;
+    const app_state = allocator.create(AppState) catch return -1;
+    const node_tree = app.initNodeTree(allocator) catch return -1;
+    std.debug.print("node_tree: {?}\n", .{node_tree});
     app_state.* = .{
-        .id = 80085,
-        .start_time = std.time.timestamp(),
+        .node_tree = node_tree,
     };
     std.debug.print("{?}\n", .{app_state});
 
     const hwnd = win32.CreateWindowExW(.{}, // Optional window styles.
-        className, // Window class
+        app_class, // Window class
         L("Learn to Program Windows"), // Window text
         win32.WS_OVERLAPPEDWINDOW, // Window style
 
@@ -70,28 +75,17 @@ pub fn wWinMain(
     return 0;
 }
 
-fn WindowProc(hwnd: win32.HWND, uMsg: u32, wParam: usize, lParam: isize) callconv(.c) isize {
+fn WindowProc(hwnd: win32.HWND, uMsg: u32, wParam: usize, lParam: isize) callconv(.c) std.os.windows.LRESULT {
     switch (uMsg) {
         win32.WM_CREATE => {
             std.debug.print("WM_CREATE\n", .{});
             const pCreate = util.isizeToPtr(win32.CREATESTRUCTW, lParam) orelse return -1;
-            const app_state = util.opaqPtrTo(MainAppState, pCreate.lpCreateParams) orelse return -1;
+            const app_state = util.opaqPtrTo(AppState, pCreate.lpCreateParams) orelse return -1;
             _ = win32.SetWindowLongPtrW(hwnd, win32.GWLP_USERDATA, util.ptrToIsize(app_state));
         },
         win32.WM_PAINT => {
             std.debug.print("WM_PAINT\n", .{});
-            const ptr = getMainAppState(hwnd);
-            std.debug.print("{?}\n", .{ptr});
-
-            var ps: win32.PAINTSTRUCT = undefined;
-            const hdc = win32.BeginPaint(hwnd, &ps);
-
-            // #region paint
-            const hbr = win32.CreateSolidBrush(@intFromEnum(win32.COLOR_WINDOWFRAME));
-            _ = win32.FillRect(hdc, &ps.rcPaint, hbr);
-            // #endregion paint
-
-            _ = win32.EndPaint(hwnd, &ps);
+            paintMainWindow(hwnd);
             return 0;
         },
         win32.WM_DROPFILES => std.debug.print("WM_DROPFILES\n", .{}),
@@ -117,14 +111,40 @@ fn WindowProc(hwnd: win32.HWND, uMsg: u32, wParam: usize, lParam: isize) callcon
         win32.WM_ERASEBKGND => std.debug.print("WM_ERASEBKGND\n", .{}),
         win32.WM_QUIT => std.debug.print("WM_QUIT\n", .{}),
         win32.WM_CLOSE => std.debug.print("WM_CLOSE\n", .{}),
-        win32.WM_DESTROY => std.debug.print("WM_DESTROY\n", .{}),
+        win32.WM_DESTROY => {
+            std.debug.print("WM_DESTROY\n", .{});
+
+            // free resources here
+            const allocator = std.heap.page_allocator;
+            if (getAppState(hwnd)) |app_state| {
+                allocator.destroy(app_state);
+            }
+        },
         else => {},
     }
     return win32.DefWindowProcW(hwnd, uMsg, wParam, lParam);
 }
 
-fn getMainAppState(hwnd: win32.HWND) ?*MainAppState {
+fn getAppState(hwnd: win32.HWND) ?*AppState {
     const ptr: isize = win32.GetWindowLongPtrW(hwnd, win32.GWLP_USERDATA);
-    const app_state = util.isizeToPtr(MainAppState, ptr);
+    const app_state = util.isizeToPtr(AppState, ptr);
     return app_state;
+}
+
+fn paintMainWindow(hwnd: win32.HWND) void {
+    const app_state = getAppState(hwnd) orelse {
+        std.debug.print("Warning: app_state is null.\n", .{});
+        return;
+    };
+    std.debug.print("{?}\n", .{app_state});
+
+    var ps: win32.PAINTSTRUCT = undefined;
+    const hdc = win32.BeginPaint(hwnd, &ps);
+
+    // #region paint
+    const hbr = win32.CreateSolidBrush(@intFromEnum(win32.COLOR_WINDOWFRAME));
+    _ = win32.FillRect(hdc, &ps.rcPaint, hbr);
+    // #endregion paint
+
+    _ = win32.EndPaint(hwnd, &ps);
 }
