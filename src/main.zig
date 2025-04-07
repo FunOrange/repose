@@ -1,11 +1,15 @@
 const std = @import("std");
 const L = std.unicode.utf8ToUtf16LeStringLiteral;
 const win32 = @import("./zigwin32/win32/everything.zig");
-const util = @import("./utils.zig");
+const util = @import("./util.zig");
+const color = @import("./color.zig");
 const layout = @import("./layout.zig");
 const app = @import("./app.zig");
 
 const app_class = L("App");
+
+var gpa: std.heap.GeneralPurposeAllocator(.{}) = .{};
+const allocator = gpa.allocator();
 
 pub const AppState = struct {
     node_tree: *layout.Node,
@@ -83,7 +87,6 @@ fn WindowProc(hwnd: win32.HWND, uMsg: u32, wParam: usize, lParam: isize) callcon
     switch (uMsg) {
         win32.WM_CREATE => {
             std.debug.print("WM_CREATE\n", .{});
-            const allocator = std.heap.page_allocator;
             const app_state = allocator.create(AppState) catch return -1;
             const node_tree = app.initNodeTree(allocator, hwnd) catch return -1;
             app_state.* = .{
@@ -93,7 +96,6 @@ fn WindowProc(hwnd: win32.HWND, uMsg: u32, wParam: usize, lParam: isize) callcon
         },
         win32.WM_PAINT => {
             paintMainWindow(hwnd);
-            return 0;
         },
         win32.WM_DROPFILES => std.debug.print("WM_DROPFILES\n", .{}),
         win32.WM_ENABLE => std.debug.print("WM_ENABLE\n", .{}),
@@ -114,7 +116,9 @@ fn WindowProc(hwnd: win32.HWND, uMsg: u32, wParam: usize, lParam: isize) callcon
         win32.WM_KILLFOCUS => std.debug.print("WM_KILLFOCUS\n", .{}),
         win32.WM_SETFOCUS => std.debug.print("WM_SETFOCUS\n", .{}),
         win32.WM_ACTIVATE => std.debug.print("WM_ACTIVATE\n", .{}),
-        win32.WM_SIZE => std.debug.print("WM_SIZE\n", .{}),
+        win32.WM_SIZE => {
+            _ = win32.InvalidateRect(hwnd, null, win32.TRUE);
+        },
         win32.WM_ERASEBKGND => std.debug.print("WM_ERASEBKGND\n", .{}),
         win32.WM_QUIT => std.debug.print("WM_QUIT\n", .{}),
         win32.WM_CLOSE => std.debug.print("WM_CLOSE\n", .{}),
@@ -122,7 +126,6 @@ fn WindowProc(hwnd: win32.HWND, uMsg: u32, wParam: usize, lParam: isize) callcon
             std.debug.print("WM_DESTROY\n", .{});
 
             // free resources here
-            const allocator = std.heap.page_allocator;
             if (getAppState(hwnd)) |app_state| {
                 allocator.destroy(app_state);
             }
@@ -138,6 +141,31 @@ fn getAppState(hwnd: win32.HWND) ?*AppState {
 }
 
 fn paintMainWindow(hwnd: win32.HWND) void {
+    var ps: win32.PAINTSTRUCT = undefined;
+    const hdc = win32.BeginPaint(hwnd, &ps) orelse return;
+    const screen_rect = ps.rcPaint;
+
     const app_state = getAppState(hwnd) orelse return;
-    std.debug.print("{?}\n", .{app_state.node_tree.hwnd});
+    layout.compute(&screen_rect, app_state.node_tree);
+
+    paintLayoutRec(hdc, app_state.node_tree);
+
+    _ = win32.EndPaint(hwnd, &ps);
+    return;
+}
+
+fn paintLayoutRec(hdc: win32.HDC, node: *layout.Node) void {
+    const rect = node.getComputedRect() catch {
+        return;
+    };
+    const brush = win32.CreateSolidBrush(node.debug_bg);
+    _ = win32.FillRect(hdc, &rect, brush);
+
+    for (node.children.items) |*child| {
+        paintLayoutRec(hdc, child);
+    }
+}
+fn drawRect(hdc: win32.HDC, rect: win32.RECT, rgb: u32) void {
+    const brush = win32.CreateSolidBrush(rgb);
+    _ = win32.FillRect(hdc, &rect, brush);
 }
