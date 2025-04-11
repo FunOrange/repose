@@ -91,11 +91,12 @@ pub fn compute(screen_rect: *const win32.RECT, node_tree: *Node) void {
     node_tree.computed_width = Computation{ .Result = screen_width };
     node_tree.computed_height = Computation{ .Result = screen_height };
 
+    const len = node_tree.children.items.len;
     for (node_tree.children.items, 0..) |*child, i| {
         const index: i32 = @intCast(i);
-        const x = index * @divTrunc(screen_width, @as(i32, 3));
+        const x = index * @divTrunc(screen_width, @as(i32, @intCast(len)));
         const y = 0;
-        const width = @divTrunc(screen_width, @as(i32, 3));
+        const width = @divTrunc(screen_width, @as(i32, @intCast(len)));
         const height = screen_height;
         child.computed_x = Computation{ .Result = x };
         child.computed_y = Computation{ .Result = y };

@@ -14,10 +14,22 @@ pub fn opaqPtrTo(comptime T: type, ptr: ?*anyopaque) ?*T {
     return @ptrCast(@alignCast(ptr));
 }
 
+pub fn ptrToOpaq(ptr: ?*anyopaque) **anyopaque {
+    return @ptrCast(ptr);
+}
+
 pub fn rgb32(r: u8, g: u8, b: u8) u32 {
     var rgb: u32 = r;
     rgb |= @as(u32, r) << 0;
     rgb |= @as(u32, g) << 8;
     rgb |= @as(u32, b) << 16;
     return rgb;
+}
+
+pub fn LOWORD(l: isize) u16 {
+    return @intCast(l & 0xffff);
+}
+
+pub fn HIWORD(l: isize) u16 {
+    return @intCast((l >> 16) & 0xffff);
 }
